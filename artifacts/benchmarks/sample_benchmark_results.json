@@ -1,0 +1,21 @@
+{
+  "config_name": "lora_sft",
+  "config_path": "configs/lora_sft.yaml",
+  "method": "lora",
+  "num_gpus": 1,
+  "batch_size": 4,
+  "gradient_accumulation_steps": 4,
+  "effective_batch_size": 16,
+  "total_training_time_sec": 0.0,
+  "avg_step_time_sec": 0.0,
+  "tokens_per_sec": 0.0,
+  "samples_per_sec": 0.0,
+  "gpu_memory_peak_mb": 0.0,
+  "gpu_utilization_avg_pct": null,
+  "training_loss_final": null,
+  "training_loss_history": [],
+  "num_steps": 0,
+  "num_epochs": 0,
+  "timestamp": "2024-01-01T00:00:00",
+  "notes": "Sample schema — run benchmarks to populate with real data"
+}
