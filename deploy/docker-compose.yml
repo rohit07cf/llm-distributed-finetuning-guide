@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  inference-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: llm-inference-api
+    ports:
+      - "8000:8000"
+    environment:
+      - BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+      - ADAPTER_PATH=/app/outputs/lora_sft
+      - QUANTIZATION=4
+      - PORT=8000
+    volumes:
+      - ../outputs:/app/outputs:ro
+      - model-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+volumes:
+  model-cache:
