@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training artifacts
+outputs/
+checkpoints/
+wandb/
+runs/
+*.pt
+*.bin
+*.safetensors
+*.gguf
+
+# Model cache
+.cache/
+huggingface/
+
+# Logs
+*.log
+logs/
+
+# Metrics output (keep README)
+artifacts/metrics/*.jsonl
+artifacts/metrics/*.csv
+artifacts/benchmarks/*.json
+!artifacts/benchmarks/sample_benchmark_results.json
+!artifacts/benchmarks/README.md
+!artifacts/metrics/README.md
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
