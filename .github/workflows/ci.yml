@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flake8 pyyaml
+
+      - name: Lint Python files
+        run: |
+          flake8 src/ scripts/ \
+            --max-line-length 120 \
+            --ignore E501,W503,E203 \
+            --count --show-source --statistics
+
+      - name: Validate YAML configs
+        run: |
+          python -c "
+          import yaml, sys, glob
+          errors = 0
+          for path in glob.glob('configs/*.yaml'):
+              try:
+                  with open(path) as f:
+                      yaml.safe_load(f)
+                  print(f'  OK: {path}')
+              except Exception as e:
+                  print(f'  FAIL: {path} — {e}')
+                  errors += 1
+          sys.exit(errors)
+          "
+
+      - name: Validate JSON configs
+        run: |
+          python -c "
+          import json, sys, glob
+          errors = 0
+          for path in glob.glob('configs/*.json') + glob.glob('data/*.json'):
+              try:
+                  with open(path) as f:
+                      json.load(f)
+                  print(f'  OK: {path}')
+              except Exception as e:
+                  print(f'  FAIL: {path} — {e}')
+                  errors += 1
+          sys.exit(errors)
+          "
+
+  dataset:
+    name: Dataset Generation Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate dataset
+        run: python scripts/generate_dataset.py --num-examples 50 --output data/test_output.json
+
+      - name: Validate dataset
+        run: python scripts/generate_dataset.py --validate --output data/test_output.json
+
+      - name: Check dataset format
+        run: |
+          python -c "
+          import json
+          with open('data/test_output.json') as f:
+              data = json.load(f)
+          assert isinstance(data, list), 'Dataset must be a list'
+          assert len(data) == 50, f'Expected 50 examples, got {len(data)}'
+          for i, entry in enumerate(data):
+              assert 'instruction' in entry, f'Entry {i} missing instruction'
+              assert 'output' in entry, f'Entry {i} missing output'
+          print(f'Dataset validation passed: {len(data)} entries')
+          "
+
+  benchmark-schema:
+    name: Validate Benchmark Schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate sample benchmark output
+        run: |
+          python -c "
+          import json
+          with open('artifacts/benchmarks/sample_benchmark_results.json') as f:
+              data = json.load(f)
+          required_fields = [
+              'config_name', 'method', 'num_gpus', 'batch_size',
+              'effective_batch_size', 'total_training_time_sec',
+              'tokens_per_sec', 'gpu_memory_peak_mb'
+          ]
+          for field in required_fields:
+              assert field in data, f'Missing required field: {field}'
+          print('Benchmark schema validation passed')
+          "
