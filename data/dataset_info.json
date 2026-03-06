@@ -1,0 +1,10 @@
+{
+  "portfolio_data": {
+    "file_name": "custom_data.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  }
+}

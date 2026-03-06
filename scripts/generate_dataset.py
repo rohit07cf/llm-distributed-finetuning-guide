@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+"""Generate a synthetic Alpaca-style medical assistant dataset.
+
+Produces 50 instruction-input-output examples covering common medical
+topics and saves them to data/custom_data.json.
+"""
+
+import json
+import os
+import argparse
+from pathlib import Path
+
+MEDICAL_EXAMPLES = [
+    {
+        "instruction": "Explain the common symptoms of a heart attack.",
+        "input": "",
+        "output": "Common heart attack symptoms include chest pain or pressure that may radiate to the left arm, jaw, or back. Patients often experience shortness of breath, cold sweats, nausea, and lightheadedness. Women may present with atypical symptoms such as fatigue, indigestion, or upper back pain. Symptoms can develop suddenly or gradually over hours. Immediate medical attention is critical if a heart attack is suspected."
+    },
+    {
+        "instruction": "What are the risk factors for type 2 diabetes?",
+        "input": "",
+        "output": "Major risk factors for type 2 diabetes include obesity (especially abdominal fat), physical inactivity, family history of diabetes, age over 45, and a history of gestational diabetes. Ethnicity plays a role, with higher prevalence in African American, Hispanic, Native American, and Asian American populations. Prediabetes, polycystic ovary syndrome, and high blood pressure are additional contributing factors."
+    },
+    {
+        "instruction": "Describe the difference between viral and bacterial pneumonia.",
+        "input": "",
+        "output": "Viral pneumonia is caused by viruses such as influenza, RSV, or SARS-CoV-2 and often presents with gradual onset of symptoms including dry cough, low-grade fever, and muscle aches. Bacterial pneumonia, commonly caused by Streptococcus pneumoniae, tends to present more acutely with high fever, productive cough with purulent sputum, and rapid clinical deterioration. Bacterial pneumonia is treated with antibiotics, while viral pneumonia management is primarily supportive unless specific antivirals are available."
+    },
+    {
+        "instruction": "What is hypertension and how is it managed?",
+        "input": "A 55-year-old patient has a blood pressure reading of 150/95 mmHg.",
+        "output": "Hypertension is defined as sustained blood pressure above 130/80 mmHg. This patient's reading of 150/95 mmHg indicates stage 2 hypertension. Management includes lifestyle modifications such as reducing sodium intake, increasing physical activity, maintaining a healthy weight, and limiting alcohol. Pharmacological treatment typically begins with first-line agents including ACE inhibitors, ARBs, calcium channel blockers, or thiazide diuretics. Regular monitoring and follow-up are essential to achieve target blood pressure goals."
+    },
+    {
+        "instruction": "Explain how vaccines work to prevent infectious diseases.",
+        "input": "",
+        "output": "Vaccines introduce a harmless form of a pathogen (attenuated, inactivated, or a component like mRNA encoding a protein) to the immune system. This stimulates the production of antibodies and trains memory B and T cells to recognize the pathogen. Upon future exposure to the actual pathogen, the immune system mounts a rapid and effective response, preventing or reducing the severity of disease. Herd immunity is achieved when a sufficient proportion of the population is vaccinated, indirectly protecting unvaccinated individuals."
+    },
+    {
+        "instruction": "What are the warning signs of a stroke?",
+        "input": "",
+        "output": "The warning signs of a stroke are best remembered using the acronym FAST: Face drooping on one side, Arm weakness or inability to raise both arms evenly, Speech difficulty including slurred or garbled speech, and Time to call emergency services immediately. Additional signs include sudden severe headache, confusion, trouble seeing in one or both eyes, and difficulty walking or loss of balance. Rapid treatment within the golden hour significantly improves outcomes."
+    },
+    {
+        "instruction": "Describe the stages of chronic kidney disease.",
+        "input": "",
+        "output": "Chronic kidney disease (CKD) is classified into five stages based on glomerular filtration rate (GFR). Stage 1: GFR >= 90 mL/min with kidney damage markers. Stage 2: GFR 60-89 mL/min with mild reduction. Stage 3a: GFR 45-59 mL/min (mild to moderate). Stage 3b: GFR 30-44 mL/min (moderate to severe). Stage 4: GFR 15-29 mL/min (severe). Stage 5: GFR < 15 mL/min (kidney failure requiring dialysis or transplant). Early detection through regular screening of at-risk populations is essential for slowing disease progression."
+    },
+    {
+        "instruction": "What is the recommended treatment for a patient with iron deficiency anemia?",
+        "input": "A 30-year-old woman presents with fatigue, pallor, and hemoglobin of 9.5 g/dL.",
+        "output": "For this patient with iron deficiency anemia (hemoglobin 9.5 g/dL), the recommended approach includes identifying and treating the underlying cause, which in premenopausal women is often menstrual blood loss. Oral iron supplementation with ferrous sulfate 325 mg two to three times daily on an empty stomach is first-line treatment. Vitamin C co-administration enhances absorption. Response should be monitored with reticulocyte count at 1-2 weeks and hemoglobin at 4-6 weeks. IV iron is reserved for patients who cannot tolerate oral iron or have malabsorption conditions."
+    },
+    {
+        "instruction": "Explain the pathophysiology of asthma.",
+        "input": "",
+        "output": "Asthma is a chronic inflammatory airway disease characterized by airway hyperresponsiveness, reversible bronchoconstriction, and mucus hypersecretion. Triggers such as allergens, exercise, or irritants activate mast cells, eosinophils, and T-helper 2 lymphocytes, releasing inflammatory mediators including histamine, leukotrienes, and cytokines. This cascade causes smooth muscle contraction, airway edema, and mucus plugging, leading to airflow obstruction. Chronic inflammation can result in airway remodeling with subepithelial fibrosis and smooth muscle hypertrophy."
+    },
+    {
+        "instruction": "What are the first-line treatments for major depressive disorder?",
+        "input": "",
+        "output": "First-line treatments for major depressive disorder include selective serotonin reuptake inhibitors (SSRIs) such as sertraline, escitalopram, and fluoxetine, and serotonin-norepinephrine reuptake inhibitors (SNRIs) such as venlafaxine and duloxetine. Psychotherapy, particularly cognitive behavioral therapy (CBT) and interpersonal therapy, is equally effective for mild to moderate depression. A combination of medication and psychotherapy is often the most effective approach for moderate to severe cases. Treatment response typically takes 4-6 weeks, and medication should be continued for at least 6-12 months after symptom remission to prevent relapse."
+    },
+    {
+        "instruction": "Describe the management of acute myocardial infarction.",
+        "input": "A 62-year-old male presents with crushing chest pain and ST elevation on ECG.",
+        "output": "This presentation is consistent with ST-elevation myocardial infarction (STEMI), requiring immediate intervention. Initial management includes dual antiplatelet therapy (aspirin and a P2Y12 inhibitor), anticoagulation with heparin, sublingual nitroglycerin for pain, and supplemental oxygen if saturation is below 90%. The primary goal is emergent reperfusion therapy, ideally percutaneous coronary intervention (PCI) within 90 minutes of first medical contact (door-to-balloon time). If PCI is not available within 120 minutes, fibrinolytic therapy should be administered. Beta-blockers, ACE inhibitors, and high-intensity statins are initiated as part of secondary prevention."
+    },
+    {
+        "instruction": "What is the difference between Crohn's disease and ulcerative colitis?",
+        "input": "",
+        "output": "Crohn's disease and ulcerative colitis are both inflammatory bowel diseases but differ in key features. Crohn's disease can affect any part of the GI tract from mouth to anus, involves transmural inflammation, and presents with skip lesions, granulomas, fistulas, and strictures. Ulcerative colitis is limited to the colon and rectum, involves only the mucosal layer, and presents with continuous inflammation starting from the rectum. Crohn's patients commonly experience abdominal pain, diarrhea, and weight loss, while ulcerative colitis typically presents with bloody diarrhea and urgency. Treatment approaches overlap but differ in surgical options."
+    },
+    {
+        "instruction": "Explain the mechanism of action of metformin.",
+        "input": "",
+        "output": "Metformin is a biguanide that primarily works by decreasing hepatic glucose production through inhibition of gluconeogenesis. It activates AMP-activated protein kinase (AMPK), which improves insulin sensitivity in peripheral tissues, particularly skeletal muscle, enhancing glucose uptake. Metformin also reduces intestinal absorption of glucose and improves lipid profiles. Unlike sulfonylureas, metformin does not stimulate insulin secretion and therefore has a low risk of hypoglycemia. It is weight-neutral or may promote modest weight loss, making it the preferred first-line therapy for type 2 diabetes."
+    },
+    {
+        "instruction": "What are the indications for initiating statin therapy?",
+        "input": "",
+        "output": "Statin therapy is indicated in four primary groups: patients with clinical atherosclerotic cardiovascular disease (ASCVD), individuals with LDL cholesterol >= 190 mg/dL, adults aged 40-75 with diabetes and LDL 70-189 mg/dL, and individuals aged 40-75 without diabetes whose 10-year ASCVD risk is >= 7.5%. High-intensity statins (atorvastatin 40-80 mg, rosuvastatin 20-40 mg) are recommended for patients with established ASCVD or very high risk. Moderate-intensity statins are appropriate for primary prevention in lower-risk groups. Risk-enhancing factors such as family history, chronic kidney disease, or elevated hsCRP may support initiation in borderline-risk patients."
+    },
+    {
+        "instruction": "Describe the clinical presentation and management of diabetic ketoacidosis.",
+        "input": "",
+        "output": "Diabetic ketoacidosis (DKA) presents with hyperglycemia (typically > 250 mg/dL), metabolic acidosis (pH < 7.3, bicarbonate < 18 mEq/L), and ketonemia. Symptoms include polyuria, polydipsia, nausea, vomiting, abdominal pain, Kussmaul breathing, fruity breath odor, and altered mental status. Management follows the ABC approach: aggressive IV fluid resuscitation with normal saline, continuous IV insulin infusion, and potassium replacement (potassium must be >= 3.3 mEq/L before starting insulin). Frequent monitoring of glucose, electrolytes, and anion gap is essential. The transition to subcutaneous insulin occurs when the anion gap closes and the patient can tolerate oral intake."
+    },
+    {
+        "instruction": "What are the common side effects of chemotherapy?",
+        "input": "",
+        "output": "Chemotherapy side effects vary by drug class but commonly include nausea and vomiting (managed with 5-HT3 antagonists and dexamethasone), myelosuppression leading to anemia, neutropenia, and thrombocytopenia, alopecia, mucositis, fatigue, and peripheral neuropathy. Specific agents carry unique risks: anthracyclines cause cardiotoxicity, platinum compounds cause nephrotoxicity and ototoxicity, and alkylating agents increase risk of secondary malignancies. Supportive care including growth factors (G-CSF), antiemetics, and careful monitoring of blood counts is integral to treatment management."
+    },
+    {
+        "instruction": "Explain the principles of antibiotic stewardship.",
+        "input": "",
+        "output": "Antibiotic stewardship aims to optimize antimicrobial use to improve patient outcomes while minimizing resistance development and adverse effects. Core principles include prescribing antibiotics only when clinically indicated, selecting the narrowest-spectrum agent effective against the likely pathogen, using appropriate dosing and duration, de-escalating therapy based on culture results, and transitioning from IV to oral therapy when appropriate. Institutional stewardship programs typically include prospective audit with feedback, formulary restrictions, clinical guidelines, and tracking of resistance patterns and antibiotic consumption metrics."
+    },
+    {
+        "instruction": "What is the approach to managing a patient with suspected pulmonary embolism?",
+        "input": "A 45-year-old woman presents with sudden onset dyspnea, pleuritic chest pain, and tachycardia after a long flight.",
+        "output": "This presentation raises high clinical suspicion for pulmonary embolism (PE). Initial assessment should include vitals, oxygen saturation, ECG, and chest X-ray. Given the high pretest probability, CT pulmonary angiography (CTPA) is the diagnostic study of choice. If hemodynamically unstable, bedside echocardiography showing right ventricular strain supports the diagnosis. While awaiting imaging, anticoagulation with unfractionated heparin or low-molecular-weight heparin should be initiated if no contraindications exist. For massive PE with hemodynamic instability, systemic thrombolysis or catheter-directed therapy should be considered. Long-term anticoagulation with a direct oral anticoagulant (DOAC) is standard for at least 3 months."
+    },
+    {
+        "instruction": "Describe the pathophysiology and treatment of sepsis.",
+        "input": "",
+        "output": "Sepsis is a life-threatening organ dysfunction caused by a dysregulated host response to infection. The pathophysiology involves pathogen recognition by innate immune cells, triggering a cytokine storm with pro-inflammatory mediators (TNF-alpha, IL-1, IL-6) leading to endothelial damage, capillary leak, vasodilation, and microvascular thrombosis. This cascade results in tissue hypoperfusion, organ dysfunction, and potentially death. Treatment follows the Surviving Sepsis Campaign guidelines: early recognition, blood cultures before antibiotics, broad-spectrum antibiotics within one hour, aggressive IV fluid resuscitation (30 mL/kg crystalloid), vasopressors (norepinephrine first-line) for persistent hypotension, and source control. Lactate-guided resuscitation and frequent reassessment are critical."
+    },
+    {
+        "instruction": "What are the guidelines for colorectal cancer screening?",
+        "input": "",
+        "output": "Colorectal cancer screening is recommended for average-risk adults beginning at age 45. Screening options include colonoscopy every 10 years, annual fecal immunochemical test (FIT), annual guaiac-based fecal occult blood test (gFOBT), multi-target stool DNA test (Cologuard) every 3 years, CT colonography every 5 years, or flexible sigmoidoscopy every 5 years. Colonoscopy remains the gold standard as it allows both detection and removal of precancerous polyps. High-risk individuals (family history, inflammatory bowel disease, hereditary syndromes) should begin screening earlier and at more frequent intervals. Screening should continue until age 75, with individualized decisions for ages 76-85."
+    },
+    {
+        "instruction": "Explain the management of hypothyroidism.",
+        "input": "A patient has TSH of 12 mIU/L and free T4 of 0.6 ng/dL.",
+        "output": "This patient has overt hypothyroidism based on elevated TSH (12 mIU/L, normal 0.4-4.0) and low free T4 (0.6 ng/dL, normal 0.8-1.8). The most common cause is Hashimoto's thyroiditis, confirmed by anti-TPO antibodies. Treatment is levothyroxine (synthetic T4) monotherapy, starting at 1.6 mcg/kg/day for young, healthy patients, or lower doses (25-50 mcg/day) for elderly patients or those with cardiac disease. Levothyroxine should be taken on an empty stomach, 30-60 minutes before breakfast, separated from calcium and iron supplements. TSH should be rechecked at 6-8 weeks, with dose adjustments in 12.5-25 mcg increments until TSH normalizes."
+    },
+    {
+        "instruction": "What is the differential diagnosis for acute abdominal pain?",
+        "input": "",
+        "output": "The differential diagnosis for acute abdominal pain is organized by location. Right upper quadrant: cholecystitis, hepatitis, biliary colic, pneumonia. Epigastric: peptic ulcer disease, pancreatitis, GERD, myocardial infarction. Left upper quadrant: splenic pathology, pancreatitis, gastritis. Right lower quadrant: appendicitis, ovarian torsion, ectopic pregnancy, Meckel's diverticulitis. Left lower quadrant: diverticulitis, ovarian pathology, sigmoid volvulus. Diffuse pain: mesenteric ischemia, bowel obstruction, peritonitis, diabetic ketoacidosis. The clinical approach involves thorough history, physical examination, laboratory studies (CBC, CMP, lipase, urinalysis, pregnancy test), and appropriate imaging (ultrasound, CT)."
+    },
+    {
+        "instruction": "Describe the pharmacology of opioid analgesics.",
+        "input": "",
+        "output": "Opioid analgesics act primarily on mu-opioid receptors in the central nervous system, producing analgesia, euphoria, respiratory depression, and constipation. Common agents include morphine, oxycodone, hydromorphone, fentanyl, and methadone. They are classified by potency and receptor affinity: full agonists (morphine, fentanyl), partial agonists (buprenorphine), and mixed agonist-antagonists (nalbuphine). Key pharmacological considerations include hepatic metabolism (CYP3A4, CYP2D6), renal excretion of active metabolites, and the development of tolerance and physical dependence. Opioid prescribing should follow established guidelines: lowest effective dose, shortest duration, concurrent naloxone prescription for high-risk patients, and use of prescription drug monitoring programs."
+    },
+    {
+        "instruction": "What is the approach to managing community-acquired pneumonia?",
+        "input": "A 70-year-old presents with fever, productive cough, and consolidation on chest X-ray.",
+        "output": "For this elderly patient with community-acquired pneumonia (CAP), severity assessment using CURB-65 or PSI scores guides the treatment setting. Given the age, hospital admission is likely warranted. Outpatient treatment for low-risk CAP includes amoxicillin or doxycycline. For inpatient non-ICU treatment, a respiratory fluoroquinolone (levofloxacin or moxifloxacin) or a beta-lactam plus macrolide combination is recommended. ICU-level CAP requires a beta-lactam (ceftriaxone or ampicillin-sulbactam) plus either a macrolide or fluoroquinolone. Blood cultures and sputum cultures should be obtained before initiating antibiotics. Clinical reassessment at 48-72 hours guides de-escalation or broadening of therapy."
+    },
+    {
+        "instruction": "Explain the concept of herd immunity.",
+        "input": "",
+        "output": "Herd immunity occurs when a sufficient proportion of a population becomes immune to an infectious disease, either through vaccination or prior infection, reducing the likelihood of transmission to susceptible individuals. The threshold varies by disease and depends on the basic reproduction number (R0): measles (R0 ~12-18) requires approximately 95% immunity, while influenza (R0 ~1.5-2) requires about 50-67%. Herd immunity protects vulnerable populations who cannot be vaccinated, such as immunocompromised individuals, infants, and pregnant women. Vaccination is the preferred method of achieving herd immunity as it avoids the morbidity and mortality associated with natural infection."
+    },
+    {
+        "instruction": "What are the key considerations in managing chronic heart failure?",
+        "input": "",
+        "output": "Management of chronic heart failure with reduced ejection fraction (HFrEF) follows guideline-directed medical therapy (GDMT). The four pillars include: ACE inhibitor/ARB/ARNI (sacubitril-valsartan preferred), beta-blocker (carvedilol, metoprolol succinate, or bisoprolol), mineralocorticoid receptor antagonist (spironolactone or eplerenone), and SGLT2 inhibitor (dapagliflozin or empagliflozin). Hydralazine-nitrate combination is recommended for African American patients or those intolerant to ACE/ARB. Loop diuretics are used for volume management but do not improve mortality. Non-pharmacological measures include sodium restriction, fluid restriction in severe cases, cardiac rehabilitation, and daily weight monitoring. Device therapy (ICD, CRT) is considered based on ejection fraction and QRS duration."
+    },
+    {
+        "instruction": "Describe the evaluation of a thyroid nodule.",
+        "input": "A 35-year-old woman has a 2 cm thyroid nodule found incidentally on ultrasound.",
+        "output": "Evaluation begins with a detailed ultrasound to characterize the nodule. Suspicious features include hypoechogenicity, irregular margins, microcalcifications, taller-than-wide shape, and extrathyroidal extension. The TI-RADS scoring system guides the need for fine-needle aspiration (FNA). For a 2 cm nodule, FNA is recommended if the TI-RADS score is 3 or higher. TSH should be measured; if low, a radioactive iodine uptake scan is performed to evaluate for a hyperfunctioning nodule, which is rarely malignant. FNA cytology is classified by the Bethesda system (I-VI), guiding further management from repeat biopsy to surgical intervention. Molecular testing (Afirma, ThyroSeq) can help clarify indeterminate cytology results."
+    },
+    {
+        "instruction": "What is the recommended approach for managing acute migraine?",
+        "input": "",
+        "output": "Acute migraine management follows a stratified approach based on severity. Mild attacks may respond to NSAIDs (ibuprofen 400-800 mg, naproxen 500-750 mg) or combination analgesics (acetaminophen-aspirin-caffeine). Moderate to severe attacks warrant triptans (sumatriptan 50-100 mg oral or 6 mg subcutaneous) as first-line specific therapy. Antiemetics (metoclopramide, prochlorperazine) address nausea and can enhance analgesic absorption. Newer options include gepants (CGRP receptor antagonists like ubrogepant and rimegepant) and lasmiditan (5-HT1F agonist) for patients with cardiovascular contraindications to triptans. Treatment should be taken early in the attack. Patients using acute treatments more than 10-15 days per month should be evaluated for preventive therapy to avoid medication overuse headache."
+    },
+    {
+        "instruction": "Explain the principles of wound healing.",
+        "input": "",
+        "output": "Wound healing occurs in four overlapping phases. Hemostasis (immediate): platelet aggregation and fibrin clot formation establish a provisional matrix. Inflammation (days 1-4): neutrophils and macrophages debride the wound and release growth factors. Proliferation (days 4-21): fibroblasts deposit collagen, angiogenesis restores blood supply, and epithelial cells migrate across the wound surface. Remodeling (weeks to months): collagen reorganizes and cross-links, increasing tensile strength to approximately 80% of original tissue. Factors impairing healing include infection, diabetes, malnutrition (protein, vitamin C, zinc deficiency), immunosuppression, smoking, and poor blood supply. Optimal wound management includes debridement, moisture balance, infection control, and addressing systemic factors."
+    },
+    {
+        "instruction": "What is the standard treatment for H. pylori infection?",
+        "input": "",
+        "output": "Standard first-line treatment for H. pylori is triple therapy for 14 days: a proton pump inhibitor (PPI) at standard dose twice daily, clarithromycin 500 mg twice daily, and amoxicillin 1000 mg twice daily (or metronidazole 500 mg twice daily in penicillin-allergic patients). In areas with clarithromycin resistance > 15%, bismuth quadruple therapy is preferred: PPI, bismuth subsalicylate, metronidazole, and tetracycline for 14 days. Eradication should be confirmed at least 4 weeks after completing therapy using urea breath test or stool antigen test. Salvage regimens for treatment failure include levofloxacin-based triple therapy or rifabutin-based therapy. Antibiotic susceptibility testing is recommended after two treatment failures."
+    },
+    {
+        "instruction": "Describe the classification and management of burns.",
+        "input": "A patient presents with burns covering 30% total body surface area after a house fire.",
+        "output": "Burns are classified by depth: superficial (first-degree) affecting the epidermis, partial-thickness (second-degree) extending into the dermis, and full-thickness (third-degree) destroying the entire dermis. This patient with 30% TBSA burns requires aggressive resuscitation using the Parkland formula: 4 mL x body weight (kg) x %TBSA burned, with half given in the first 8 hours and the remainder over the next 16 hours. Immediate management includes airway assessment (especially for inhalational injury with singed nasal hairs, carbonaceous sputum, or stridor), IV access, pain management, tetanus prophylaxis, and wound care. Transfer to a burn center is indicated for > 20% TBSA, full-thickness burns, inhalational injury, or burns to critical areas (face, hands, genitalia, joints)."
+    },
+    {
+        "instruction": "What are the indications for renal replacement therapy?",
+        "input": "",
+        "output": "Indications for urgent renal replacement therapy (dialysis) are remembered by the mnemonic AEIOU: Acidosis (refractory metabolic acidosis pH < 7.1), Electrolyte abnormalities (refractory hyperkalemia > 6.5 mEq/L), Ingestions (toxic alcohols, lithium, salicylates), Overload (fluid overload refractory to diuretics), and Uremia (symptomatic uremia with encephalopathy, pericarditis, or bleeding). Elective initiation of maintenance dialysis is considered when GFR falls below 5-10 mL/min/1.73m2 or when uremic symptoms impair quality of life. Modalities include intermittent hemodialysis, continuous renal replacement therapy (CRRT) for hemodynamically unstable patients, and peritoneal dialysis. Early nephrology referral allows planning for vascular access or peritoneal catheter placement."
+    },
+    {
+        "instruction": "Explain the pathophysiology of rheumatoid arthritis.",
+        "input": "",
+        "output": "Rheumatoid arthritis (RA) is a chronic autoimmune disease characterized by symmetric inflammatory polyarthritis. The pathophysiology involves genetic susceptibility (HLA-DR4), environmental triggers (smoking, infections), and immune dysregulation. Autoreactive CD4+ T cells activate macrophages and B cells in the synovium, producing pro-inflammatory cytokines (TNF-alpha, IL-1, IL-6) and autoantibodies (rheumatoid factor, anti-CCP). Synovial hyperplasia forms a pannus that invades cartilage and bone through metalloproteinases and osteoclast activation. The result is joint destruction, deformity, and disability. Extra-articular manifestations include rheumatoid nodules, interstitial lung disease, vasculitis, and increased cardiovascular risk."
+    },
+    {
+        "instruction": "What is the approach to diagnosing and managing celiac disease?",
+        "input": "",
+        "output": "Celiac disease diagnosis begins with serological testing while the patient is on a gluten-containing diet. Tissue transglutaminase IgA (tTG-IgA) is the preferred initial test, with total IgA level to rule out IgA deficiency. Positive serology should be confirmed with upper endoscopy and duodenal biopsies showing villous atrophy, crypt hyperplasia, and intraepithelial lymphocytosis (Marsh classification). HLA-DQ2/DQ8 genetic testing has high negative predictive value. Treatment is strict lifelong gluten-free diet (eliminating wheat, barley, rye). Patients should be monitored for nutritional deficiencies (iron, calcium, vitamin D, B12, folate) and screened for associated conditions including thyroid disease, type 1 diabetes, and osteoporosis."
+    },
+    {
+        "instruction": "Describe the management of status epilepticus.",
+        "input": "",
+        "output": "Status epilepticus is a neurological emergency defined as continuous seizure activity lasting more than 5 minutes or recurrent seizures without return to baseline. Management follows a time-based protocol. Phase 1 (0-5 minutes): stabilize ABCs, check glucose, establish IV access. Phase 2 (5-20 minutes): first-line treatment with IV benzodiazepines — lorazepam 0.1 mg/kg (max 4 mg per dose) or midazolam 10 mg IM. Phase 3 (20-40 minutes): second-line agents including fosphenytoin 20 mg PE/kg IV, levetiracetam 60 mg/kg IV, or valproate 40 mg/kg IV. Phase 4 (> 40 minutes, refractory): ICU admission for continuous infusion of propofol, midazolam, or pentobarbital with continuous EEG monitoring. Identifying and treating the underlying cause is essential throughout."
+    },
+    {
+        "instruction": "What are the key principles of insulin management in type 1 diabetes?",
+        "input": "",
+        "output": "Insulin management in type 1 diabetes aims to mimic physiological insulin secretion through a basal-bolus regimen. Basal insulin (glargine, detemir, or degludec) provides 40-50% of total daily insulin dose and controls fasting glucose. Bolus insulin (lispro, aspart, or glulisine) covers carbohydrate intake and corrects hyperglycemia before meals. The insulin-to-carbohydrate ratio (typically 1 unit per 10-15g carbohydrates) and correction factor (typically 1 unit per 30-50 mg/dL above target) are individualized. Continuous glucose monitoring (CGM) and insulin pump therapy (continuous subcutaneous insulin infusion) improve glycemic control and reduce hypoglycemia risk. Target HbA1c is < 7% for most adults, with individualized goals."
+    },
+    {
+        "instruction": "Explain the evaluation and management of anaphylaxis.",
+        "input": "",
+        "output": "Anaphylaxis is a severe, potentially fatal systemic allergic reaction requiring immediate recognition and treatment. Clinical criteria include rapid onset of symptoms involving skin (urticaria, flushing), respiratory tract (bronchospasm, stridor, dyspnea), cardiovascular system (hypotension, tachycardia), and GI tract (nausea, vomiting, cramping). First-line treatment is intramuscular epinephrine 0.3-0.5 mg (1:1000) in the anterolateral thigh, repeated every 5-15 minutes as needed. Adjunctive treatments include IV fluids for hypotension, inhaled beta-agonists for bronchospasm, H1/H2 antihistamines, and corticosteroids (though these do not treat the acute phase). Patients should be observed for 4-6 hours for biphasic reactions. All patients must be prescribed an epinephrine auto-injector and referred to an allergist."
+    },
+    {
+        "instruction": "What are the causes and management of acute pancreatitis?",
+        "input": "",
+        "output": "The two most common causes of acute pancreatitis are gallstones (40%) and alcohol (30%). Other causes include hypertriglyceridemia, medications (azathioprine, valproic acid), ERCP, autoimmune conditions, and idiopathic. Diagnosis requires two of three criteria: characteristic epigastric pain radiating to the back, lipase > 3x upper limit of normal, and characteristic findings on imaging. Management is primarily supportive: aggressive IV fluid resuscitation (goal-directed with lactated Ringer's), pain control (opioids, preferably hydromorphone), NPO initially with early oral feeding as tolerated, and monitoring for complications. Severe cases may develop necrotizing pancreatitis, pseudocysts, organ failure, or SIRS. Cholecystectomy should be performed during the same admission for gallstone pancreatitis."
+    },
+    {
+        "instruction": "Describe the mechanism and clinical use of ACE inhibitors.",
+        "input": "",
+        "output": "ACE inhibitors (enalapril, lisinopril, ramipril) block angiotensin-converting enzyme, preventing conversion of angiotensin I to angiotensin II. This reduces vasoconstriction, aldosterone secretion, and sympathetic activation, resulting in decreased blood pressure and afterload. ACE inhibitors also inhibit bradykinin degradation, contributing to vasodilation but causing the characteristic dry cough in 10-15% of patients. Clinical indications include hypertension, heart failure (reduces mortality), post-MI cardioprotection, diabetic nephropathy (reduces proteinuria), and CKD. Contraindications include bilateral renal artery stenosis, pregnancy, history of angioedema, and hyperkalemia. Monitoring includes serum creatinine and potassium within 1-2 weeks of initiation."
+    },
+    {
+        "instruction": "What is the approach to managing a patient with cirrhosis?",
+        "input": "",
+        "output": "Cirrhosis management focuses on treating the underlying cause, preventing complications, and screening for hepatocellular carcinoma. For alcohol-related cirrhosis: abstinence. For hepatitis B/C: antiviral therapy. Complication management includes: ascites (sodium restriction, diuretics — spironolactone and furosemide, paracentesis for tense ascites), spontaneous bacterial peritonitis prophylaxis (norfloxacin or trimethoprim-sulfamethoxazole), variceal bleeding prevention (non-selective beta-blockers, endoscopic band ligation), hepatic encephalopathy (lactulose, rifaximin), and hepatorenal syndrome (IV albumin, vasoconstrictors). HCC screening with ultrasound and AFP every 6 months is standard. MELD score guides transplant prioritization. Liver transplant evaluation should be initiated when decompensation occurs."
+    },
+    {
+        "instruction": "Explain the principles of mechanical ventilation.",
+        "input": "",
+        "output": "Mechanical ventilation supports or replaces spontaneous breathing in respiratory failure. Key modes include: volume-controlled ventilation (set tidal volume, variable pressure), pressure-controlled ventilation (set pressure, variable volume), and pressure support (patient-triggered, augmented breaths). Initial settings for ARDS follow lung-protective ventilation: tidal volume 6 mL/kg ideal body weight, plateau pressure < 30 cmH2O, PEEP titrated to FiO2 per ARDSNet table, and target SpO2 88-95%. Key parameters to monitor include peak and plateau pressures, driving pressure, compliance, minute ventilation, and blood gases. Complications include ventilator-associated pneumonia, barotrauma, ventilator-induced lung injury, and ventilator-associated diaphragm dysfunction. Weaning involves daily spontaneous breathing trials when the underlying condition has improved."
+    },
+    {
+        "instruction": "What are the diagnostic criteria for systemic lupus erythematosus?",
+        "input": "",
+        "output": "Systemic lupus erythematosus (SLE) diagnosis uses the 2019 EULAR/ACR classification criteria. The entry criterion is a positive ANA (titer >= 1:80). Additive criteria are organized into clinical domains (constitutional, hematologic, neuropsychiatric, mucocutaneous, serosal, musculoskeletal, renal) and immunological domains (anti-dsDNA, anti-Smith, antiphospholipid antibodies, complement levels). Each criterion is weighted, and a total score >= 10 classifies SLE. Key manifestations include malar rash, discoid rash, photosensitivity, oral ulcers, arthritis, serositis (pleurisy, pericarditis), renal involvement (proteinuria, cellular casts), neurological disorders (seizures, psychosis), and hematological abnormalities (hemolytic anemia, leukopenia, thrombocytopenia). Treatment ranges from NSAIDs and hydroxychloroquine for mild disease to immunosuppressants and biologics (belimumab) for severe organ involvement."
+    },
+    {
+        "instruction": "Describe the management of acute upper GI bleeding.",
+        "input": "A patient presents with hematemesis and melena with hemoglobin of 7.2 g/dL.",
+        "output": "This patient with acute upper GI bleeding requires immediate resuscitation. Initial management includes two large-bore IV lines, aggressive crystalloid infusion, and type and crossmatch for packed red blood cells with a restrictive transfusion threshold (target hemoglobin 7-8 g/dL). IV proton pump inhibitor infusion (pantoprazole 80 mg bolus then 8 mg/hour) should be started. Risk stratification using the Glasgow-Blatchford score guides the need for intervention. Endoscopy should be performed within 24 hours (or within 12 hours for high-risk patients) for both diagnosis and hemostasis (injection therapy, thermal coagulation, hemoclips). If variceal bleeding is suspected, IV octreotide and prophylactic antibiotics (ceftriaxone) should be initiated. Hemodynamic instability despite resuscitation warrants ICU admission and consideration of interventional radiology or surgical consultation."
+    },
+    {
+        "instruction": "What are the principles of perioperative anticoagulation management?",
+        "input": "",
+        "output": "Perioperative anticoagulation management balances bleeding risk against thromboembolism risk. For warfarin: stop 5 days before surgery (allow INR to normalize). Bridging with LMWH is indicated for high thromboembolism risk (mechanical heart valve, recent VTE < 3 months, atrial fibrillation with high CHA2DS2-VASc score). Resume warfarin 12-24 hours postoperatively. For DOACs (apixaban, rivarfaban, dabigatran): stop 2-3 days before surgery (longer for renal impairment or high bleeding risk procedures). No bridging is typically needed. For antiplatelet agents: aspirin can usually be continued for most procedures except intracranial surgery. Dual antiplatelet therapy after coronary stenting should not be interrupted within the recommended duration (6-12 months for DES). Close coordination between surgeon, cardiologist, and hematologist is essential."
+    },
+    {
+        "instruction": "Explain the evaluation of a solitary pulmonary nodule.",
+        "input": "A 60-year-old smoker has an 8 mm solid pulmonary nodule found on chest CT.",
+        "output": "For this high-risk patient (age 60, smoker) with an 8 mm solid pulmonary nodule, malignancy probability assessment guides management. The Fleischner Society guidelines and Lung-RADS classification inform follow-up. Risk calculators (Mayo Clinic, Brock) estimate malignancy probability based on size, morphology, location, patient age, and smoking history. For solid nodules 6-8 mm in high-risk patients: CT follow-up at 6-12 months, then at 18-24 months if stable. If the nodule grows or has suspicious features (spiculation, upper lobe location, new nodule), PET-CT and tissue sampling (CT-guided biopsy or bronchoscopic biopsy) are indicated. Nodules > 8 mm with high suspicion warrant PET-CT followed by biopsy or surgical resection. Multidisciplinary discussion with pulmonology, radiology, and thoracic surgery optimizes management."
+    },
+    {
+        "instruction": "What is the approach to managing acute kidney injury?",
+        "input": "",
+        "output": "Acute kidney injury (AKI) is classified by KDIGO criteria: Stage 1 (creatinine rise 1.5-1.9x baseline or < 0.5 mL/kg/hr urine for 6-12 hours), Stage 2 (2.0-2.9x baseline), Stage 3 (>= 3x baseline or creatinine >= 4.0 mg/dL or initiation of RRT). The diagnostic approach categorizes AKI as prerenal (hypovolemia, decreased cardiac output), intrinsic (ATN, glomerulonephritis, interstitial nephritis), or postrenal (obstruction). Workup includes urinalysis with microscopy (muddy brown casts in ATN, WBC casts in pyelonephritis, RBC casts in glomerulonephritis), fractional excretion of sodium (< 1% prerenal, > 2% intrinsic), renal ultrasound for obstruction, and serological workup if glomerulonephritis is suspected. Management focuses on treating the underlying cause, optimizing volume status, avoiding nephrotoxins, adjusting medication doses, and initiating RRT when indicated."
+    },
+    {
+        "instruction": "Describe the clinical features and management of Parkinson's disease.",
+        "input": "",
+        "output": "Parkinson's disease is a progressive neurodegenerative disorder caused by loss of dopaminergic neurons in the substantia nigra. Cardinal motor features include resting tremor (pill-rolling, 4-6 Hz), rigidity (cogwheel), bradykinesia (slowness of movement), and postural instability. Non-motor features include anosmia, constipation, REM sleep behavior disorder, depression, cognitive decline, and autonomic dysfunction. Diagnosis is clinical, supported by response to dopaminergic therapy and imaging (DaTscan) in uncertain cases. First-line treatment for motor symptoms includes levodopa-carbidopa (most effective), dopamine agonists (pramipexole, ropinirole), and MAO-B inhibitors (selegiline, rasagiline). Advanced therapies for motor fluctuations include deep brain stimulation, LCIG (Duopa), and continuous subcutaneous apomorphine infusion."
+    },
+    {
+        "instruction": "What are the current guidelines for osteoporosis screening and treatment?",
+        "input": "",
+        "output": "Osteoporosis screening with dual-energy X-ray absorptiometry (DXA) is recommended for all women >= 65 years, men >= 70 years, and younger postmenopausal women with risk factors. Diagnosis is based on T-score: normal (> -1.0), osteopenia (-1.0 to -2.5), and osteoporosis (<= -2.5) or fragility fracture. FRAX calculator estimates 10-year fracture risk to guide treatment decisions. Treatment is indicated for hip or vertebral fracture, T-score <= -2.5, or T-score -1.0 to -2.5 with FRAX >= 3% hip fracture or >= 20% major osteoporotic fracture risk. First-line therapy includes oral bisphosphonates (alendronate, risedronate). Alternatives include IV zoledronic acid, denosumab, or anabolic agents (teriparatide, romosozumab) for high fracture risk. All patients should receive adequate calcium (1000-1200 mg/day) and vitamin D (800-1000 IU/day). Weight-bearing exercise and fall prevention are essential."
+    },
+    {
+        "instruction": "Explain the approach to managing diabetic foot ulcers.",
+        "input": "",
+        "output": "Diabetic foot ulcer management requires a multidisciplinary approach. Initial assessment includes wound evaluation (size, depth, Wagner classification), vascular assessment (ankle-brachial index, pedal pulses), neurological examination (monofilament testing), and infection evaluation (clinical signs, probe-to-bone test, imaging). Wound management involves debridement of necrotic tissue, offloading pressure (total contact cast, removable walker), moisture management with appropriate dressings, and infection control. Mild infections (superficial, limited cellulitis) are treated with oral antibiotics covering gram-positive organisms. Moderate to severe infections require IV antibiotics covering gram-positive, gram-negative, and anaerobic organisms, with cultures guiding therapy. Osteomyelitis requires prolonged antibiotics and possible surgical debridement. Vascular insufficiency may necessitate revascularization. Glycemic control, smoking cessation, and preventive foot care are essential for reducing recurrence."
+    },
+    {
+        "instruction": "What is the recommended management of atrial fibrillation?",
+        "input": "",
+        "output": "Atrial fibrillation management addresses rate control, rhythm control, and stroke prevention. Rate control targets resting heart rate < 110 bpm (lenient) or < 80 bpm (strict) using beta-blockers (metoprolol), calcium channel blockers (diltiazem), or digoxin. Rhythm control with antiarrhythmic drugs (flecainide, propafenone for structurally normal hearts; amiodarone, dofetilide, sotalol for structural heart disease) or catheter ablation is preferred for symptomatic patients, younger patients, or those with heart failure. Stroke prevention is guided by CHA2DS2-VASc score: anticoagulation with DOACs (apixaban, rivarfaban, edoxaban, dabigatran) is recommended for scores >= 2 in men or >= 3 in women. DOACs are preferred over warfarin for non-valvular AF. Left atrial appendage occlusion (Watchman device) is an alternative for patients with contraindications to long-term anticoagulation."
+    },
+    {
+        "instruction": "Describe the diagnosis and management of deep vein thrombosis.",
+        "input": "A 50-year-old patient presents with unilateral leg swelling and calf tenderness 2 weeks after knee replacement surgery.",
+        "output": "This patient has high clinical probability for DVT given the recent surgery, unilateral swelling, and calf tenderness. Wells score is likely >= 2 (high probability). The diagnostic approach: for high probability, proceed directly to compression ultrasonography (CUS) of the affected leg. If CUS is positive, diagnosis is confirmed. If negative but clinical suspicion remains high, repeat CUS in 5-7 days or perform CT venography. D-dimer is most useful for excluding DVT in low-probability patients. Treatment: initiate anticoagulation immediately with LMWH (enoxaparin 1 mg/kg BID) or fondaparinux, transitioning to a DOAC (rivaroxaban or apixaban) or warfarin (target INR 2-3). For post-surgical DVT, anticoagulation duration is typically 3 months. Compression stockings, early mobilization, and monitoring for symptoms of pulmonary embolism are important. IVC filter placement is reserved for patients with absolute contraindications to anticoagulation."
+    },
+    {
+        "instruction": "Explain the role of immunotherapy in cancer treatment.",
+        "input": "",
+        "output": "Cancer immunotherapy harnesses the immune system to recognize and destroy tumor cells. Major classes include: immune checkpoint inhibitors (anti-PD-1: pembrolizumab, nivolumab; anti-PD-L1: atezolizumab; anti-CTLA-4: ipilimumab) that release brakes on T cell antitumor activity, CAR-T cell therapy (chimeric antigen receptor T cells engineered to target tumor antigens like CD19 in B-cell malignancies), bispecific antibodies (blinatumomab bridging T cells and tumor cells), and cancer vaccines. Checkpoint inhibitors have transformed treatment of melanoma, NSCLC, renal cell carcinoma, bladder cancer, and many others. Key side effects are immune-related adverse events (irAEs) affecting any organ: colitis, pneumonitis, hepatitis, thyroiditis, and dermatitis, managed with corticosteroids and immunosuppression. Biomarkers for response include PD-L1 expression, tumor mutational burden, and microsatellite instability status."
+    }
+]
+
+
+def generate_dataset(num_examples: int = 50, output_path: str = "data/custom_data.json") -> None:
+    """Generate synthetic medical assistant dataset.
+
+    Args:
+        num_examples: Number of examples to generate.
+        output_path: Path to save the dataset.
+    """
+    dataset = MEDICAL_EXAMPLES[:num_examples]
+
+    if len(dataset) < num_examples:
+        print(f"Warning: Only {len(dataset)} examples available, requested {num_examples}")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(dataset, f, indent=2, ensure_ascii=False)
+
+    print(f"Generated {len(dataset)} examples -> {output_path}")
+
+
+def validate_dataset(path: str) -> bool:
+    """Validate dataset format and content."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    required_keys = {"instruction", "output"}
+    for i, entry in enumerate(data):
+        if not required_keys.issubset(entry.keys()):
+            print(f"Entry {i} missing keys: {required_keys - entry.keys()}")
+            return False
+        if not entry["instruction"].strip():
+            print(f"Entry {i} has empty instruction")
+            return False
+        if not entry["output"].strip():
+            print(f"Entry {i} has empty output")
+            return False
+
+    print(f"Validation passed: {len(data)} entries, all valid.")
+    return True
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate synthetic medical QA dataset")
+    parser.add_argument("--num-examples", type=int, default=50, help="Number of examples")
+    parser.add_argument("--output", type=str, default="data/custom_data.json", help="Output path")
+    parser.add_argument("--validate", action="store_true", help="Validate existing dataset")
+    args = parser.parse_args()
+
+    if args.validate:
+        validate_dataset(args.output)
+    else:
+        generate_dataset(args.num_examples, args.output)
+        validate_dataset(args.output)
