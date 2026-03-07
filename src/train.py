@@ -11,7 +11,6 @@ import os
 import sys
 import time
 import logging
-from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,21 +21,30 @@ logger = logging.getLogger(__name__)
 
 
 def setup_metrics_file(output_dir: str) -> str:
+    # Purpose: ensure the run output directory exists and define where
+    # per-step training metrics will be appended as JSONL.
+    # Beginner view: creates the log file location before training starts.
     """Create metrics JSONL file path inside the output directory."""
     os.makedirs(output_dir, exist_ok=True)
     return os.path.join(output_dir, "training_metrics.jsonl")
 
 
 def log_metric(metrics_path: str, record: dict) -> None:
+    # Purpose: persist one metrics dictionary as a single JSONL line.
+    # Beginner view: every call writes one training snapshot to disk.
     """Append a metrics record to the JSONL log."""
     with open(metrics_path, "a") as f:
         f.write(json.dumps(record) + "\n")
 
 
 class TrainingMetricsCallback:
+    # Purpose: lifecycle hook object that tracks timing and throughput at each
+    # training step, then writes machine-readable metrics for analysis.
     """Callback to capture and log training metrics per step."""
 
     def __init__(self, metrics_path: str, log_interval: int = 10):
+        # Purpose: keep callback state needed for timing and cumulative
+        # counters across all steps (total samples/tokens seen so far).
         self.metrics_path = metrics_path
         self.log_interval = log_interval
         self.step_start_time = None
@@ -45,12 +53,25 @@ class TrainingMetricsCallback:
         self.total_tokens = 0
 
     def on_step_begin(self, step: int, **kwargs):
+        # Purpose: mark the start time of the current optimizer step so step
+        # duration and throughput can be computed in on_step_end.
         self.step_start_time = time.time()
         self.global_step = step
 
-    def on_step_end(self, step: int, loss: float = 0.0, learning_rate: float = 0.0,
-                     batch_size: int = 0, seq_length: int = 1024, epoch: float = 0.0,
-                     gradient_accumulation_steps: int = 1, **kwargs):
+    def on_step_end(
+        self,
+        step: int,
+        loss: float = 0.0,
+        learning_rate: float = 0.0,
+        batch_size: int = 0,
+        seq_length: int = 1024,
+        epoch: float = 0.0,
+        gradient_accumulation_steps: int = 1,
+        **kwargs,
+    ):
+        # Purpose: compute per-step timing/throughput, update cumulative totals,
+        # print periodic console logs, and write a structured metrics record.
+        # Beginner view: this is the core analytics hook for each training step.
         step_time = time.time() - self.step_start_time if self.step_start_time else 0.0
         samples_in_step = batch_size * gradient_accumulation_steps
         tokens_in_step = samples_in_step * seq_length
@@ -85,15 +106,25 @@ class TrainingMetricsCallback:
 
 
 def parse_args():
+    # Purpose: define and parse command-line options for training.
+    # Beginner view: controls which config file is used and whether this is
+    # a validation-only dry run.
     parser = argparse.ArgumentParser(description="LLM fine-tuning training entrypoint")
-    parser.add_argument("--config", type=str, required=True, help="Path to YAML training config")
-    parser.add_argument("--dry-run", action="store_true", help="Validate config without training")
+    parser.add_argument(
+        "--config", type=str, required=True, help="Path to YAML training config"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate config without training"
+    )
     return parser.parse_args()
 
 
 def load_config(config_path: str) -> dict:
+    # Purpose: read YAML config into a Python dict used by all downstream
+    # validation, logging, and training launch logic.
     """Load YAML configuration."""
     import yaml
+
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     logger.info(f"Loaded config from {config_path}")
@@ -101,6 +132,8 @@ def load_config(config_path: str) -> dict:
 
 
 def validate_config(config: dict) -> bool:
+    # Purpose: fail early if key training fields are missing.
+    # Beginner view: prevents confusing runtime errors later in training.
     """Validate required configuration fields."""
     required_fields = ["model_name_or_path", "stage", "output_dir"]
     missing = [f for f in required_fields if f not in config]
@@ -112,13 +145,15 @@ def validate_config(config: dict) -> bool:
 
 
 def run_llamafactory_training(config: dict, config_path: str) -> None:
+    # Purpose: perform the actual training launch through LLaMA-Factory,
+    # while printing a readable summary of the selected settings.
+    # Beginner view: this is where your config is finally executed.
     """Launch training using LLaMA-Factory CLI."""
     try:
         from llamafactory.train.tuner import run_exp
     except ImportError:
         logger.error(
-            "LLaMA-Factory is not installed. Install with: "
-            "pip install llamafactory"
+            "LLaMA-Factory is not installed. Install with: " "pip install llamafactory"
         )
         sys.exit(1)
 
@@ -151,6 +186,9 @@ def run_llamafactory_training(config: dict, config_path: str) -> None:
 
 
 def main():
+    # Purpose: top-level program flow: parse args -> load config -> validate ->
+    # optional dry-run -> real training launch.
+    # Beginner view: orchestrates the full training lifecycle.
     args = parse_args()
     config = load_config(args.config)
 

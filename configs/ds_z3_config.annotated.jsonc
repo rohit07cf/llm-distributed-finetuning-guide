@@ -1,0 +1,66 @@
+{
+  // Mixed precision block. BF16 is usually more numerically stable than FP16 on modern GPUs.
+  // In real time: matmul/attention compute uses BF16 where supported, reducing memory bandwidth.
+  "bf16": {
+    "enabled": true
+  },
+
+  "zero_optimization": {
+    // ZeRO stage 3 shards optimizer states + gradients + model parameters across GPUs.
+    // In real time: each GPU stores only a partition of model states, enabling larger models/batches.
+    "stage": 3,
+
+    "offload_optimizer": {
+      // Keep optimizer states on CPU RAM instead of GPU VRAM.
+      // Tradeoff: lower VRAM usage, but slower step time due to PCIe/NVLink transfers.
+      "device": "cpu",
+      // Pinning memory speeds host<->device copies.
+      "pin_memory": true
+    },
+
+    "offload_param": {
+      // Offload partitioned parameters to CPU when not actively used in current layer execution.
+      // Greatly reduces VRAM pressure, especially with ZeRO-3.
+      "device": "cpu",
+      "pin_memory": true
+    },
+
+    // Overlap communication with computation (reduce-scatter/all-gather while kernels run).
+    "overlap_comm": true,
+
+    // Store gradients in contiguous memory to improve communication/optimizer efficiency.
+    "contiguous_gradients": true,
+
+    // Large subgroup effectively disables subgroup splitting for this small/medium setup.
+    "sub_group_size": 1e9,
+
+    // Communication bucket sizing. "auto" lets DeepSpeed tune based on model/hardware.
+    "reduce_bucket_size": "auto",
+    "stage3_prefetch_bucket_size": "auto",
+
+    // Threshold for keeping params resident instead of constantly partitioning/gathering.
+    // "auto" usually picks a good default; manual tuning can improve throughput.
+    "stage3_param_persistence_threshold": "auto",
+
+    // Safety upper bounds for live parameter tracking/reuse heuristics.
+    "stage3_max_live_parameters": 1e9,
+    "stage3_max_reuse_distance": 1e9,
+
+    // Save consolidated 16-bit model weights at checkpoint time for easier loading/inference.
+    "stage3_gather_16bit_weights_on_model_save": true
+  },
+
+  // "auto" values are synchronized with Trainer/LlamaFactory settings at runtime.
+  "gradient_accumulation_steps": "auto",
+  "gradient_clipping": "auto",
+
+  // Log interval from DeepSpeed engine side (in steps).
+  "steps_per_print": 10,
+
+  // Global and micro batch sizes inferred from launcher + training config.
+  "train_batch_size": "auto",
+  "train_micro_batch_size_per_gpu": "auto",
+
+  // Adds detailed runtime timing breakdowns for troubleshooting throughput bottlenecks.
+  "wall_clock_breakdown": true
+}

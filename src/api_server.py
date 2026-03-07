@@ -34,6 +34,7 @@ _tokenizer = None
 
 class GenerateRequest(BaseModel):
     """Request body for the /generate endpoint."""
+
     prompt: str = Field(..., min_length=1, description="The input prompt")
     max_new_tokens: int = Field(default=512, ge=1, le=2048)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
@@ -42,6 +43,7 @@ class GenerateRequest(BaseModel):
 
 class GenerateResponse(BaseModel):
     """Response body for the /generate endpoint."""
+
     response: str
     tokens_generated: int
     latency_ms: float
@@ -49,6 +51,7 @@ class GenerateResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Response body for the /healthz endpoint."""
+
     status: str
     model_loaded: bool
     model_name: str
@@ -58,13 +61,12 @@ def load_model_on_startup():
     """Load the model and tokenizer when the server starts."""
     global _model, _tokenizer
 
-    base_model = os.environ.get(
-        "BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"
-    )
+    base_model = os.environ.get("BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct")
     adapter_path = os.environ.get("ADAPTER_PATH", "outputs/lora_sft")
     quantization = int(os.environ.get("QUANTIZATION", "0"))
 
     from src.inference import load_model
+
     _model, _tokenizer = load_model(
         base_model=base_model,
         adapter_path=adapter_path,
@@ -130,6 +132,7 @@ async def generate(request: GenerateRequest):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "src.api_server:app",
         host="0.0.0.0",

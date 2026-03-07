@@ -12,7 +12,6 @@ import subprocess
 import time
 import logging
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GPUMetrics:
     """Snapshot of GPU and system metrics at a point in time."""
+
     timestamp: str
     step: Optional[int] = None
     gpu_id: int = 0
@@ -36,6 +36,9 @@ class GPUMetrics:
 
 
 def get_torch_gpu_metrics(device_id: int = 0) -> dict:
+    # Purpose: read GPU memory numbers directly from PyTorch CUDA APIs.
+    # Beginner view: this tells you how much VRAM your training process is
+    # currently using and what its memory peak has been.
     """Collect GPU memory metrics using PyTorch CUDA APIs.
 
     Returns a dict with memory_allocated_mb, memory_reserved_mb,
@@ -43,6 +46,7 @@ def get_torch_gpu_metrics(device_id: int = 0) -> dict:
     """
     try:
         import torch
+
         if not torch.cuda.is_available():
             return {}
 
@@ -64,6 +68,9 @@ def get_torch_gpu_metrics(device_id: int = 0) -> dict:
 
 
 def get_nvidia_smi_metrics(device_id: int = 0) -> dict:
+    # Purpose: query NVIDIA driver telemetry (utilization and temperature)
+    # by calling nvidia-smi as a subprocess.
+    # Beginner view: this is a quick hardware-level health check while training.
     """Parse nvidia-smi for utilization and temperature.
 
     Returns a dict with gpu_utilization_pct and gpu_temperature_c.
@@ -95,12 +102,16 @@ def get_nvidia_smi_metrics(device_id: int = 0) -> dict:
 
 
 def get_pynvml_metrics(device_id: int = 0) -> dict:
+    # Purpose: fallback telemetry source when nvidia-smi is unavailable.
+    # Beginner view: same goal as get_nvidia_smi_metrics, but through Python
+    # NVML bindings instead of shelling out to CLI tools.
     """Collect GPU metrics using pynvml (if available).
 
     Fallback when nvidia-smi is not in PATH or subprocess is restricted.
     """
     try:
         import pynvml
+
         pynvml.nvmlInit()
         handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
 
@@ -118,9 +129,13 @@ def get_pynvml_metrics(device_id: int = 0) -> dict:
 
 
 def get_cpu_ram_metrics() -> dict:
+    # Purpose: capture host RAM usage so you can see CPU memory pressure,
+    # especially useful when DeepSpeed offloading moves states to CPU memory.
+    # Beginner view: helps explain why system RAM may spike during training.
     """Get CPU RAM usage using /proc/meminfo or psutil."""
     try:
         import psutil
+
         mem = psutil.virtual_memory()
         return {
             "cpu_ram_used_mb": round(mem.used / (1024**2), 2),
@@ -157,6 +172,9 @@ def collect_metrics(
     throughput_tokens: float = 0.0,
     throughput_samples: float = 0.0,
 ) -> GPUMetrics:
+    # Purpose: assemble one complete metrics snapshot by combining GPU memory,
+    # GPU utilization/temperature, CPU RAM, and throughput into one object.
+    # Beginner view: this is the single "capture everything now" function.
     """Collect a full snapshot of GPU and system metrics.
 
     Tries torch CUDA APIs first, then nvidia-smi, then pynvml for
@@ -174,7 +192,9 @@ def collect_metrics(
     torch_metrics = get_torch_gpu_metrics(device_id)
     metrics.gpu_memory_allocated_mb = torch_metrics.get("gpu_memory_allocated_mb", 0.0)
     metrics.gpu_memory_reserved_mb = torch_metrics.get("gpu_memory_reserved_mb", 0.0)
-    metrics.gpu_max_memory_allocated_mb = torch_metrics.get("gpu_max_memory_allocated_mb", 0.0)
+    metrics.gpu_max_memory_allocated_mb = torch_metrics.get(
+        "gpu_max_memory_allocated_mb", 0.0
+    )
 
     # GPU utilization: try nvidia-smi first, then pynvml
     util_metrics = get_nvidia_smi_metrics(device_id)
@@ -194,7 +214,11 @@ def collect_metrics(
 class MetricsLogger:
     """Persistent metrics logger that writes snapshots to a JSONL file."""
 
-    def __init__(self, output_path: str, device_id: int = 0, log_interval_steps: int = 10):
+    def __init__(
+        self, output_path: str, device_id: int = 0, log_interval_steps: int = 10
+    ):
+        # Purpose: initialize logger state, remember the device/interval, and
+        # create the output folder so writes do not fail later.
         self.output_path = output_path
         self.device_id = device_id
         self.log_interval_steps = log_interval_steps
@@ -208,6 +232,8 @@ class MetricsLogger:
         throughput_tokens: float = 0.0,
         throughput_samples: float = 0.0,
     ) -> GPUMetrics:
+        # Purpose: collect current metrics and append one JSON line to disk.
+        # Beginner view: each call adds one timestamped row to your metrics file.
         """Collect and write metrics for the current step."""
         snapshot = collect_metrics(
             device_id=self.device_id,
@@ -220,5 +246,7 @@ class MetricsLogger:
         return snapshot
 
     def should_log(self, step: int) -> bool:
+        # Purpose: central place for deciding logging cadence.
+        # Beginner view: returns True at intervals like every 10 steps.
         """Check whether metrics should be logged at this step."""
         return step % self.log_interval_steps == 0

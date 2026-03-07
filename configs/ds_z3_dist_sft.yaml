@@ -2,47 +2,78 @@
 ### Multi-GPU distributed training with full parameter sharding
 
 # Model
+# HF model ID or local path. This is the base model loaded on every process.
 model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+# Keep true for models that define custom classes/tokenizers.
 trust_remote_code: true
 
 # Method
+# SFT = supervised fine-tuning (instruction tuning).
 stage: sft
+# Enables training mode (instead of just eval/predict).
 do_train: true
+# We only train low-rank adapter weights, not full model weights.
 finetuning_type: lora
 
 # LoRA hyperparameters
+# Rank controls adapter capacity: higher rank -> more quality potential + more memory/compute.
 lora_rank: 16
+# Effective LoRA scaling. Common heuristic: alpha ~= 2 * rank.
 lora_alpha: 32
+# Dropout applied only on LoRA path to reduce overfitting on small datasets.
 lora_dropout: 0.05
+# Which linear layers receive LoRA adapters.
+# Runtime effect: gradients/updates are computed only for adapters attached to these modules.
 lora_target: q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj
 
 # Dataset
+# Name must exist in data/dataset_info.json.
 dataset: portfolio_data
 dataset_dir: data
+# Prompt template that formats input/output into model-specific chat format.
 template: llama3
+# Max tokens per training sample after tokenization.
+# Longer context improves coverage but increases memory and step time.
 cutoff_len: 1024
+# Parallel workers for dataset preprocessing/tokenization.
 preprocessing_num_workers: 4
+# Rebuild tokenized cache when data/template changes.
 overwrite_cache: true
 
 # Training
+# Micro-batch per GPU process. With 4 GPUs and value=2, each step sees 8 samples before accumulation.
 per_device_train_batch_size: 2
+# Number of forward/backward passes before optimizer step.
+# Effective global batch = per_device_train_batch_size * gradient_accumulation_steps * world_size.
 gradient_accumulation_steps: 4
+# Base optimizer learning rate for LoRA params.
 learning_rate: 2.0e-4
+# Full passes over dataset.
 num_train_epochs: 3
+# Cosine decay usually gives smooth convergence for LLM finetuning.
 lr_scheduler_type: cosine
+# First 10% of total steps linearly warm up LR to avoid early instability.
 warmup_ratio: 0.1
+# Gradient clipping for stability in distributed mixed-precision runs.
 max_grad_norm: 1.0
 
 # DeepSpeed
+# Points to DeepSpeed engine settings (ZeRO stage, offload, buckets, precision behavior).
+# Keep this as .json for runtime; see ds_z3_config.annotated.jsonc for explanations.
 deepspeed: configs/ds_z3_config.json
 
 # Logging and saving
+# Print training metrics every N optimizer steps.
 logging_steps: 10
+# Save checkpoint every N optimizer steps.
 save_steps: 100
+# Keep latest checkpoints only (helps control disk usage).
 save_total_limit: 3
 output_dir: outputs/ds_z3_dist_sft
 report_to: none
+# bf16 is preferred on modern GPUs (A100/H100/RTX 40xx) for speed/stability.
 bf16: true
 
 # Reproducibility
+# Fixed random seed for more repeatable runs (still not perfectly deterministic on all CUDA ops).
 seed: 42

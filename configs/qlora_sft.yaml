@@ -2,16 +2,20 @@
 ### 4-bit quantized LoRA for single-GPU memory-efficient training
 
 # Model
+# Base model is loaded in quantized form for memory savings.
 model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
 trust_remote_code: true
 
 # Method
 stage: sft
 do_train: true
+# QLoRA still uses LoRA adapters; quantization changes how base weights are stored.
 finetuning_type: lora
 
 # Quantization (QLoRA)
+# 4-bit weights drastically cut VRAM usage for the frozen base model.
 quantization_bit: 4
+# bitsandbytes backend performs quantized loading and matmul kernels.
 quantization_method: bitsandbytes
 
 # LoRA hyperparameters
@@ -29,7 +33,9 @@ preprocessing_num_workers: 4
 overwrite_cache: true
 
 # Training
+# Lower micro-batch is common with quantization + long context to avoid OOM.
 per_device_train_batch_size: 2
+# Effective batch (single GPU) = 2 * 8 = 16 samples/update.
 gradient_accumulation_steps: 8
 learning_rate: 2.0e-4
 num_train_epochs: 3
@@ -43,6 +49,7 @@ save_steps: 100
 save_total_limit: 3
 output_dir: outputs/qlora_sft
 report_to: none
+# Compute still runs in fp16 while base weights are stored in 4-bit.
 fp16: true
 
 # Reproducibility

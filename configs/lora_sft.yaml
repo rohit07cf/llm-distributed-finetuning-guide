@@ -2,31 +2,45 @@
 ### Standard LoRA training on a single GPU
 
 # Model
+# Base model checkpoint to load before adding LoRA adapters.
 model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+# Needed when model/tokenizer repo ships custom code.
 trust_remote_code: true
 
 # Method
+# SFT instruction tuning stage.
 stage: sft
 do_train: true
+# LoRA updates only adapter weights, keeping base model frozen.
 finetuning_type: lora
 
 # LoRA hyperparameters
+# Adapter rank (capacity). Higher rank can learn more but costs more memory.
 lora_rank: 16
+# LoRA scaling factor. Typical value is about 2x rank.
 lora_alpha: 32
+# Regularization on LoRA branch.
 lora_dropout: 0.05
+# Target modules where adapters are inserted.
 lora_target: q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj
 
 # Dataset
+# Dataset alias from data/dataset_info.json.
 dataset: portfolio_data
 dataset_dir: data
+# Chat formatting template for Llama 3 style prompts.
 template: llama3
+# Token-length cap per sample.
 cutoff_len: 1024
 preprocessing_num_workers: 4
 overwrite_cache: true
 
 # Training
+# Samples per GPU forward pass.
 per_device_train_batch_size: 4
+# Accumulate gradients over 4 mini-steps before one optimizer update.
 gradient_accumulation_steps: 4
+# Effective batch here (single GPU) = 4 * 4 = 16 samples/update.
 learning_rate: 2.0e-4
 num_train_epochs: 3
 lr_scheduler_type: cosine
@@ -39,6 +53,7 @@ save_steps: 100
 save_total_limit: 3
 output_dir: outputs/lora_sft
 report_to: none
+# fp16 mixed precision reduces VRAM and usually speeds training.
 fp16: true
 
 # Reproducibility

@@ -7,7 +7,6 @@ given prompts.
 
 import argparse
 import logging
-import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,6 +22,10 @@ def load_model(
     quantization: int = 0,
     device: str = "auto",
 ):
+    # Purpose: build an inference-ready model stack by loading the tokenizer,
+    # loading the base LLM, then attaching the trained LoRA adapter weights.
+    # Beginner view: this is the setup step that prepares everything before
+    # you can ask prompts and get responses.
     """Load the base model with a LoRA adapter merged in.
 
     Args:
@@ -81,6 +84,9 @@ def generate_response(
     top_p: float = 0.9,
     do_sample: bool = True,
 ) -> str:
+    # Purpose: take one prompt, convert it into model input tokens, run text
+    # generation, and decode only the newly generated part of the output.
+    # Beginner view: this is the "ask question -> get model answer" function.
     """Generate a text response for a given prompt.
 
     Args:
@@ -120,12 +126,15 @@ def generate_response(
         )
 
     # Decode only the generated tokens (skip the input)
-    generated_ids = outputs[0][inputs["input_ids"].shape[1]:]
+    generated_ids = outputs[0][inputs["input_ids"].shape[1] :]
     response = tokenizer.decode(generated_ids, skip_special_tokens=True)
     return response.strip()
 
 
 def main():
+    # Purpose: CLI entrypoint that reads command-line options, loads the model
+    # once, gathers prompts (single/file/default), and prints responses.
+    # Beginner view: this controls the full user workflow when you run the file.
     parser = argparse.ArgumentParser(description="Run inference with fine-tuned model")
     parser.add_argument(
         "--base-model",
@@ -140,7 +149,9 @@ def main():
         help="Path to LoRA adapter directory",
     )
     parser.add_argument("--prompt", type=str, help="Single prompt to run")
-    parser.add_argument("--prompts-file", type=str, help="File with prompts (one per line)")
+    parser.add_argument(
+        "--prompts-file", type=str, help="File with prompts (one per line)"
+    )
     parser.add_argument("--quantization", type=int, default=0, choices=[0, 4, 8])
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -171,7 +182,9 @@ def main():
         print(f"\n[Prompt {i}] {prompt}")
         print("-" * 70)
         response = generate_response(
-            model, tokenizer, prompt,
+            model,
+            tokenizer,
+            prompt,
             max_new_tokens=args.max_new_tokens,
             temperature=args.temperature,
         )
