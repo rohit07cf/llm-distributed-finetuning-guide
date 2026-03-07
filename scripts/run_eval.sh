@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ADAPTER_PATH="${1:-outputs/lora_sft}"
-BASE_MODEL="${BASE_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}"
+BASE_MODEL="${BASE_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
 QUANTIZATION="${QUANTIZATION:-0}"
 
 echo "========================================"

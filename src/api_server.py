@@ -65,7 +65,7 @@ def load_model_on_startup():
     """Load the model and tokenizer when the server starts."""
     global _model, _tokenizer
 
-    base_model = os.environ.get("BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct")
+    base_model = os.environ.get("BASE_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     adapter_path = os.environ.get("ADAPTER_PATH", "outputs/lora_sft")
     quantization = int(os.environ.get("QUANTIZATION", "0"))
 
@@ -95,7 +95,7 @@ async def health_check():
     return HealthResponse(
         status="healthy" if _model is not None else "degraded",
         model_loaded=_model is not None,
-        model_name=os.environ.get("BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"),
+        model_name=os.environ.get("BASE_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
     )
 
 

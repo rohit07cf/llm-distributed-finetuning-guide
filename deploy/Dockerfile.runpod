@@ -23,7 +23,7 @@ COPY src/ src/
 COPY deploy/runpod_handler.py .
 
 # Environment variables (set these in RunPod dashboard)
-ENV BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+ENV BASE_MODEL=Qwen/Qwen2.5-7B-Instruct
 ENV ADAPTER_REPO=""
 ENV QUANTIZATION=4
 

@@ -24,7 +24,7 @@ COPY data/ data/
 COPY static/ static/
 
 # Environment variables (override at runtime)
-ENV BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+ENV BASE_MODEL=Qwen/Qwen2.5-7B-Instruct
 ENV ADAPTER_PATH=outputs/lora_sft
 ENV QUANTIZATION=0
 ENV PORT=8000

@@ -5,7 +5,7 @@ RunPod Serverless endpoint. The model loads once on cold start,
 then handles requests until the worker scales down.
 
 Environment variables:
-    BASE_MODEL: HuggingFace model ID (default: meta-llama/Meta-Llama-3-8B-Instruct)
+    BASE_MODEL: HuggingFace model ID (default: Qwen/Qwen2.5-7B-Instruct)
     ADAPTER_REPO: HuggingFace repo with LoRA adapter (e.g., rohit07cf/medical-qa-qlora-adapter)
     QUANTIZATION: Quantization bits, 0/4/8 (default: 4)
 """
@@ -28,7 +28,7 @@ def load_model():
     """Download adapter from HuggingFace and load the model."""
     global MODEL, TOKENIZER
 
-    base_model = os.environ.get("BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct")
+    base_model = os.environ.get("BASE_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     adapter_repo = os.environ.get("ADAPTER_REPO", "")
     quantization = int(os.environ.get("QUANTIZATION", "4"))
 

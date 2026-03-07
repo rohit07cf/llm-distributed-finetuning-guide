@@ -139,7 +139,7 @@ def main():
     parser.add_argument(
         "--base-model",
         type=str,
-        default="meta-llama/Meta-Llama-3-8B-Instruct",
+        default="Qwen/Qwen2.5-7B-Instruct",
         help="Base model name or path",
     )
     parser.add_argument(
