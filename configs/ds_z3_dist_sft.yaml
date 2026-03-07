@@ -3,7 +3,7 @@
 
 # Model
 # HF model ID or local path. This is the base model loaded on every process.
-model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
 # Keep true for models that define custom classes/tokenizers.
 trust_remote_code: true
 
@@ -31,7 +31,7 @@ lora_target: q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj
 dataset: portfolio_data
 dataset_dir: data
 # Prompt template that formats input/output into model-specific chat format.
-template: llama3
+template: qwen
 # Max tokens per training sample after tokenization.
 # Longer context improves coverage but increases memory and step time.
 cutoff_len: 1024

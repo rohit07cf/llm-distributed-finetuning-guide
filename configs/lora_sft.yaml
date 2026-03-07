@@ -3,7 +3,7 @@
 
 # Model
 # Base model checkpoint to load before adding LoRA adapters.
-model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
 # Needed when model/tokenizer repo ships custom code.
 trust_remote_code: true
 
@@ -28,8 +28,8 @@ lora_target: q_proj,v_proj,k_proj,o_proj,gate_proj,up_proj,down_proj
 # Dataset alias from data/dataset_info.json.
 dataset: portfolio_data
 dataset_dir: data
-# Chat formatting template for Llama 3 style prompts.
-template: llama3
+# Chat formatting template matching the model.
+template: qwen
 # Token-length cap per sample.
 cutoff_len: 1024
 preprocessing_num_workers: 4

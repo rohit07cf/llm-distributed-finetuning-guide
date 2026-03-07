@@ -1,0 +1,30 @@
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+LABEL maintainer="Rohit Goswami"
+LABEL description="RunPod Serverless LLM inference endpoint"
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir runpod huggingface_hub
+
+# Copy application code
+COPY src/ src/
+COPY deploy/runpod_handler.py .
+
+# Environment variables (set these in RunPod dashboard)
+ENV BASE_MODEL=Qwen/Qwen2.5-7B-Instruct
+ENV ADAPTER_REPO=""
+ENV QUANTIZATION=4
+
+CMD ["python3", "runpod_handler.py"]

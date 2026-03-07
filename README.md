@@ -197,7 +197,7 @@ Or with custom prompts:
 
 ```bash
 python src/inference.py \
-    --base-model meta-llama/Meta-Llama-3-8B-Instruct \
+    --base-model Qwen/Qwen2.5-7B-Instruct \
     --adapter-path outputs/lora_sft \
     --prompt "Explain the symptoms of a heart attack" \
     --quantization 4
@@ -208,7 +208,7 @@ python src/inference.py \
 ### Local
 
 ```bash
-BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct \
+BASE_MODEL=Qwen/Qwen2.5-7B-Instruct \
 ADAPTER_PATH=outputs/lora_sft \
 QUANTIZATION=4 \
 uvicorn src.api_server:app --host 0.0.0.0 --port 8000
@@ -461,12 +461,12 @@ The synthetic medical QA dataset (50 examples) is intentionally small for demons
 
 ## Model Configuration
 
-The default model is `meta-llama/Meta-Llama-3-8B-Instruct`. To use an alternative model, update the `model_name_or_path` field in any YAML config:
+The default model is `Qwen/Qwen2.5-7B-Instruct`. To use an alternative model, update the `model_name_or_path` field in any YAML config:
 
 ```yaml
-# Example: switch to Qwen
-model_name_or_path: Qwen/Qwen2.5-7B
-template: qwen
+# Example: switch to a different model
+model_name_or_path: mistralai/Mistral-7B-Instruct-v0.3
+template: mistral
 ```
 
 ## Public Cloud Deployment (Portfolio Demo)

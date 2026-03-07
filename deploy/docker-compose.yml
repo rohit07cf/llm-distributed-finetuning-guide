@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+      - BASE_MODEL=Qwen/Qwen2.5-7B-Instruct
       - ADAPTER_PATH=/app/outputs/lora_sft
       - QUANTIZATION=4
       - PORT=8000
