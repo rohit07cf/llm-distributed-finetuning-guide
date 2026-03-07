@@ -12,6 +12,8 @@ import os
 import time
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 logging.basicConfig(
@@ -26,6 +28,8 @@ app = FastAPI(
     description="REST API for fine-tuned LLM text generation",
     version="1.0.0",
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global model references (loaded on startup)
 _model = None
@@ -128,6 +132,12 @@ async def generate(request: GenerateRequest):
         tokens_generated=tokens_generated,
         latency_ms=latency_ms,
     )
+
+
+@app.get("/")
+async def read_index():
+    """Serve the recruiter-friendly demo page."""
+    return FileResponse("static/index.html")
 
 
 if __name__ == "__main__":

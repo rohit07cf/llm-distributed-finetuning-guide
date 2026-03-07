@@ -21,6 +21,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY configs/ configs/
 COPY data/ data/
+COPY static/ static/
 
 # Environment variables (override at runtime)
 ENV BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
