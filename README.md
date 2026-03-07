@@ -221,6 +221,47 @@ cd deploy
 docker-compose up --build
 ```
 
+### Cloud Portfolio Deployment (HTTPS)
+
+Use this path to expose a recruiter-facing API with TLS on your own domain.
+
+Prerequisites:
+- Cloud VM with NVIDIA GPU
+- Docker + Docker Compose plugin installed
+- NVIDIA Container Toolkit installed
+- DNS A record pointing your domain/subdomain to the VM public IP
+
+Production deployment assets:
+- `deploy/docker-compose.prod.yml` - inference API + Caddy reverse proxy
+- `deploy/Caddyfile` - HTTPS termination and reverse proxy config
+- `scripts/deploy_cloud.sh` - one-command cloud deployment helper
+
+1. Train or copy an adapter into `outputs/` (for example `outputs/lora_sft`).
+2. Deploy with your domain and email:
+
+```bash
+bash scripts/deploy_cloud.sh \
+    --domain llm.yourname.dev \
+    --email you@example.com \
+    --adapter-path /app/outputs/lora_sft \
+    --base-model meta-llama/Meta-Llama-3-8B-Instruct \
+    --quantization 4
+```
+
+3. Verify service:
+
+```bash
+curl https://llm.yourname.dev/healthz
+curl -X POST https://llm.yourname.dev/generate \
+    -H "Content-Type: application/json" \
+    -d '{"prompt":"Explain heart attack symptoms","max_new_tokens":128}'
+```
+
+Notes:
+- Open inbound ports `80` and `443` on your VM firewall/security group.
+- The script writes deployment variables to `deploy/.env.prod`.
+- If your adapter path differs, pass `--adapter-path` explicitly.
+
 ### API Usage
 
 ```bash

@@ -1,0 +1,46 @@
+services:
+  inference-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: llm-inference-api
+    environment:
+      - BASE_MODEL=${BASE_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
+      - ADAPTER_PATH=${ADAPTER_PATH:-/app/outputs/lora_sft}
+      - QUANTIZATION=${QUANTIZATION:-4}
+      - PORT=8000
+    volumes:
+      - ../outputs:/app/outputs:ro
+      - model-cache:/root/.cache/huggingface
+    expose:
+      - "8000"
+    gpus: all
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+  caddy:
+    image: caddy:2.8.4
+    container_name: llm-inference-proxy
+    depends_on:
+      - inference-api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  model-cache:
+  caddy-data:
+  caddy-config:

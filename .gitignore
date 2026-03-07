@@ -53,6 +53,7 @@ artifacts/benchmarks/*.json
 # Environment
 .env
 .env.local
+deploy/.env.prod
 
 # OS
 .DS_Store

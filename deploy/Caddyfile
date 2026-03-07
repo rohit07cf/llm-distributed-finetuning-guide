@@ -1,0 +1,19 @@
+{
+    email {$ACME_EMAIL}
+}
+
+# Public entrypoint for recruiter-facing demo API.
+# Set DOMAIN to your DNS name (e.g., llm.yourname.dev).
+{$DOMAIN:localhost} {
+    encode gzip zstd
+
+    # Forward all traffic to the FastAPI container on the internal network.
+    reverse_proxy inference-api:8000
+
+    # Basic security headers for public exposure.
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+    }
+}
