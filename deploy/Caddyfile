@@ -1,19 +1,36 @@
 {
-    email {$ACME_EMAIL}
+	email {$ACME_EMAIL}
 }
 
 # Public entrypoint for recruiter-facing demo API.
 # Set DOMAIN to your DNS name (e.g., llm.yourname.dev).
+# If DOMAIN=localhost, Caddy serves HTTP only (no TLS).
 {$DOMAIN:localhost} {
-    encode gzip zstd
+	encode gzip zstd
 
-    # Forward all traffic to the FastAPI container on the internal network.
-    reverse_proxy inference-api:8000
+	# Forward all traffic to the FastAPI container on the internal network.
+	reverse_proxy inference-api:8000 {
+		transport http {
+			response_header_timeout 120s
+			dial_timeout 10s
+		}
+	}
 
-    # Basic security headers for public exposure.
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        Referrer-Policy no-referrer
-    }
+	# Basic security headers for public exposure.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# Rate limiting: use caddy-ratelimit plugin or app-level middleware.
+	# Community Caddy does not include rate_limit by default.
+	# For quick app-level limiting, see FastAPI slowapi or starlette middleware.
+
+	log {
+		output stdout
+		format json
+	}
 }

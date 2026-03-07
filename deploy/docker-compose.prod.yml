@@ -1,3 +1,6 @@
+# Production deployment: GPU inference + Caddy HTTPS reverse proxy
+# Usage: docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up --build -d
+
 services:
   inference-api:
     build:
@@ -9,12 +12,22 @@ services:
       - ADAPTER_PATH=${ADAPTER_PATH:-/app/outputs/lora_sft}
       - QUANTIZATION=${QUANTIZATION:-4}
       - PORT=8000
+      - HF_HOME=/root/.cache/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       - ../outputs:/app/outputs:ro
       - model-cache:/root/.cache/huggingface
     expose:
       - "8000"
-    gpus: all
+    networks:
+      - internal
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
@@ -22,12 +35,18 @@ services:
       timeout: 10s
       start_period: 120s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   caddy:
     image: caddy:2.8.4
     container_name: llm-inference-proxy
     depends_on:
-      - inference-api
+      inference-api:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
@@ -38,7 +57,22 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    networks:
+      - internal
+      - external
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge
 
 volumes:
   model-cache:

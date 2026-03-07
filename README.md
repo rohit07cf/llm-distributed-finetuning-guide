@@ -240,12 +240,9 @@ Production deployment assets:
 2. Deploy with your domain and email:
 
 ```bash
-bash scripts/deploy_cloud.sh \
-    --domain llm.yourname.dev \
-    --email you@example.com \
-    --adapter-path /app/outputs/lora_sft \
-    --base-model meta-llama/Meta-Llama-3-8B-Instruct \
-    --quantization 4
+export DOMAIN=llm.yourname.dev
+export HF_TOKEN=hf_your_token_here
+bash scripts/deploy_cloud.sh
 ```
 
 3. Verify service:
@@ -471,6 +468,144 @@ The default model is `meta-llama/Meta-Llama-3-8B-Instruct`. To use an alternativ
 model_name_or_path: Qwen/Qwen2.5-7B
 template: qwen
 ```
+
+## Public Cloud Deployment (Portfolio Demo)
+
+Deploy the inference API to a cloud GPU VM so recruiters can test it live.
+
+### Prerequisites
+
+- Ubuntu 22.04+ GPU VM (RunPod, Lambda, AWS g5, GCP a2, etc.)
+- NVIDIA drivers + NVIDIA Container Toolkit installed
+- Docker + Docker Compose plugin
+- (Optional) Domain name with DNS A-record pointing to VM IP
+- (Optional) Hugging Face token for gated models (Llama, Mistral)
+
+### Quick Start (One Command)
+
+```bash
+# SSH into your GPU VM, then:
+git clone https://github.com/<your-username>/llm-distributed-finetuning-guide.git
+cd llm-distributed-finetuning-guide
+
+# Set required env vars
+export DOMAIN=llm.yourname.dev          # or "localhost" for IP-only access
+export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx # required for gated models
+
+# Deploy
+bash scripts/deploy_cloud.sh
+```
+
+The script will: validate prerequisites, write `deploy/.env.prod` (git-ignored), build the Docker image, start the inference API + Caddy reverse proxy, and wait for the health check to pass.
+
+### Verify Deployment
+
+```bash
+# Run the automated smoke test
+DOMAIN=llm.yourname.dev bash scripts/check_deploy.sh
+
+# Or manually:
+curl https://llm.yourname.dev/healthz
+curl https://llm.yourname.dev/docs
+curl -X POST https://llm.yourname.dev/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Explain LoRA in one sentence.", "max_new_tokens": 64}'
+```
+
+### Operations
+
+```bash
+# View logs
+docker compose -f deploy/docker-compose.prod.yml logs -f
+
+# Restart services
+docker compose -f deploy/docker-compose.prod.yml restart
+
+# Stop (preserves volumes/cache)
+docker compose -f deploy/docker-compose.prod.yml down
+
+# Full cleanup (removes volumes too)
+docker compose -f deploy/docker-compose.prod.yml down -v
+```
+
+### Configuration
+
+Copy `deploy/.env.prod.template` to `deploy/.env.prod` and adjust:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DOMAIN` | `localhost` | DNS name for TLS; use `localhost` for HTTP-only |
+| `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt (required if DOMAIN set) |
+| `HF_TOKEN` | _(empty)_ | Hugging Face token for gated models |
+| `BASE_MODEL` | `meta-llama/Meta-Llama-3-8B-Instruct` | Base model ID |
+| `ADAPTER_PATH` | `/app/outputs/lora_sft` | Path to LoRA adapter in container |
+| `QUANTIZATION` | `4` | Quantization bits (4=NF4, 8=int8, 0=fp16) |
+
+### Cost Control Tips
+
+- **Stop the VM** when not demoing — GPU VMs cost $1-4/hr.
+- Use **4-bit quantization** (default) to fit on a single 24GB GPU.
+- Set `max_new_tokens` limits in requests to control generation cost.
+- Use spot/preemptible instances for non-critical demos.
+
+### Security Notes
+
+- The API container is on an internal Docker network; only Caddy is publicly exposed.
+- Caddy provides automatic HTTPS via Let's Encrypt when a domain is configured.
+- Security headers (X-Frame-Options, CSP, etc.) are set in the Caddyfile.
+- For production use, add API key authentication and rate limiting.
+
+### Recruiter Demo Links
+
+> Replace `llm.yourname.dev` with your actual domain or IP.
+
+| Endpoint | URL |
+|---|---|
+| Health Check | `https://llm.yourname.dev/healthz` |
+| API Documentation (Swagger) | `https://llm.yourname.dev/docs` |
+| Text Generation | `POST https://llm.yourname.dev/generate` |
+
+**Sample curl for recruiters:**
+
+```bash
+curl -X POST https://llm.yourname.dev/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What are the symptoms of acute pancreatitis?", "max_new_tokens": 128, "temperature": 0.7}'
+```
+
+### Fresh VM Setup (Manual Steps)
+
+If you need to set up a bare VM from scratch before running the deploy script:
+
+```bash
+# 1. System packages
+sudo apt-get update && sudo apt-get install -y curl git
+
+# 2. Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER && newgrp docker
+
+# 3. NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+  sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+# 4. Verify GPU access in Docker
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+
+# 5. Clone and deploy
+git clone https://github.com/<your-username>/llm-distributed-finetuning-guide.git
+cd llm-distributed-finetuning-guide
+export DOMAIN=llm.yourname.dev
+export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
+bash scripts/deploy_cloud.sh
+```
+
 
 ## License
 
