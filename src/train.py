@@ -179,7 +179,15 @@ def run_llamafactory_training(config: dict, config_path: str) -> None:
         logger.info(f"  Quantization:     {config['quantization_bit']}-bit")
     logger.info("=" * 60)
 
-    # Run LLaMA-Factory training
+    # Activity 1/3 (TRAIN): this call launches the full fine-tuning job.
+    # What happens under the hood:
+    # - Loads the base model from `model_name_or_path`.
+    # - Applies the selected finetuning strategy (LoRA / QLoRA / full / etc.).
+    # - Iterates over dataset batches for the configured epochs.
+    # - Optimizes trainable parameters and periodically writes checkpoints.
+    # Output artifact relevant to later steps:
+    # - For LoRA/QLoRA, the output directory stores adapter weights/config
+    #   (not a fully merged standalone base+adapter model).
     run_exp(args=config)
 
     logger.info("Training completed successfully.")

@@ -22,11 +22,10 @@ def load_model(
     quantization: int = 0,
     device: str = "auto",
 ):
-    # Purpose: build an inference-ready model stack by loading the tokenizer,
-    # loading the base LLM, then attaching the trained LoRA adapter weights.
-    # Beginner view: this is the setup step that prepares everything before
-    # you can ask prompts and get responses.
-    """Load the base model with a LoRA adapter merged in.
+    # Purpose: build an inference-ready model stack by loading tokenizer +
+    # base model + trained LoRA adapter.
+    # Beginner view: this prepares everything needed before generation.
+    """Load the base model and apply a trained LoRA adapter.
 
     Args:
         base_model: HuggingFace model ID or local path.
@@ -67,6 +66,15 @@ def load_model(
     logger.info(f"Loading base model from {base_model}")
     model = AutoModelForCausalLM.from_pretrained(base_model, **load_kwargs)
 
+    # Activity 2/3 (MERGE ADAPTER WITH BASE MODEL):
+    # In this repository, we currently perform a runtime adapter attach using
+    # PEFT. This combines base + adapter for inference execution, but does NOT
+    # write a new standalone merged checkpoint to disk.
+    #
+    # If you need an offline merged model artifact, the usual pattern is:
+    #   merged = PeftModel.from_pretrained(base, adapter).merge_and_unload()
+    #   merged.save_pretrained(...)
+    # That offline save step is not implemented in this code path.
     logger.info(f"Loading LoRA adapter from {adapter_path}")
     model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()
@@ -84,9 +92,13 @@ def generate_response(
     top_p: float = 0.9,
     do_sample: bool = True,
 ) -> str:
-    # Purpose: take one prompt, convert it into model input tokens, run text
-    # generation, and decode only the newly generated part of the output.
-    # Beginner view: this is the "ask question -> get model answer" function.
+    # Activity 3/3 (INFERENCE):
+    # This function is the actual prediction path used for user prompts.
+    # Pipeline per request:
+    # 1) prompt -> chat/instruction formatted text
+    # 2) formatted text -> token IDs
+    # 3) model.generate(...) to sample new tokens
+    # 4) decode only newly generated tokens into final response text
     """Generate a text response for a given prompt.
 
     Args:
